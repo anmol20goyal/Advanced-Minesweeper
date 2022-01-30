@@ -4,16 +4,24 @@ using UnityEngine.UI;
 
 public class TileScript : MonoBehaviour
 {
-    public TileType _previous;
-    public TileType _current;
-    public TMP_Text _text;
-    public Image _image;
-    public Image _hideImage;
+    #region GameObjectsAndEnums
 
-    public bool clicked = false;
-    public bool flagged = false;
-    // public bool mine = false;
+    [SerializeField] private Image tileImage;
+    [SerializeField] private TileType _previous;
+    [SerializeField] public TileType _current;
+    [SerializeField] private TMP_Text _text;
+    [SerializeField] private Image _image;
+    [SerializeField] private Image _hideImage;
 
+    #endregion
+
+    #region Variables
+
+    [SerializeField] private bool clicked = false;
+    [SerializeField] private bool flagged = false;
+
+    #endregion
+    
     public void Clicked()
     {
         clicked = true;
@@ -31,6 +39,12 @@ public class TileScript : MonoBehaviour
         _image.sprite = _sprite;
     }
 
+    public void Empty()
+    {
+        GetComponent<Image>().enabled = false;
+        _image.enabled = false;
+    }
+
     public void SetText(bool enableText)
     {
         _text.enabled = enableText;
@@ -43,10 +57,15 @@ public class TileScript : MonoBehaviour
         _hideImage.enabled = hideStatus;
     }
 
-    public bool CheckFlag()
+    public void SetUnSetFlag()
     {
         flagged = !flagged;
         _current = flagged ? TileType.FLAG : _previous;
+        
+    }
+
+    public bool CheckFlagged()
+    {
         return flagged;
     }
 
@@ -56,6 +75,25 @@ public class TileScript : MonoBehaviour
         {
             SetSprite(null, false);
             SetText(true);
+        }
+    }
+
+    public void RevealMine()
+    {
+        if (_previous == TileType.MINE)
+        {
+            Hide(false);
+            if (CheckFlagged())
+            {
+                tileImage.color = Color.blue;
+            }
+        }
+        else
+        {
+            if (CheckFlagged())
+            {
+                tileImage.color = Color.black;
+            }
         }
     }
     

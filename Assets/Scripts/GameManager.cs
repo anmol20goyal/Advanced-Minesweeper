@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Packages.Rider.Editor.UnitTesting;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -13,24 +15,28 @@ public class GridSprites
 }
 
 public enum TileType { EMPTY, BLOCK_1, BLOCK_2, BLOCK_3, BLOCK_4, BLOCK_5, BLOCK_6, BLOCK_7, BLOCK_8, MINE, FLAG, NONE }
-
+    
 public class GameManager : MonoBehaviour
 {
     #region GameObjects
 
     private Grid grid;
     private TileType[,] gridMap;
+    private List<int[]> mineMap = new List<int[]>();
 
     public GameObject block;
     public GameObject gridPanel;
     
-    [Header("Sprites")]
-    [Space(20)]
+    [Header("Sprites")] [Space(20)]
     public Sprite bomb;
     public Sprite square;
     public Sprite graySquare;
     public Sprite flag;
 
+    [Header("UI")] [Space(20)] 
+    [SerializeField] private GameObject gameOverUI;
+    [SerializeField] private TMP_Text flagsLeftTxt;
+    
     #endregion
 
     #region EnumsAndVariables
@@ -42,18 +48,18 @@ public class GameManager : MonoBehaviour
         HARD
     }
     
-    [Header("EnumsVariables")]
-    [Space(20)]
+    [Header("EnumsVariables")] [Space(20)]
     public DifficultyType difficultyType;
-    public TileType tileType;
 
     #endregion
     
     #region Variables
-    [Header("Variables")]
-    [Space(20)]
-    [SerializeField] private bool setFlag = false;
-    [SerializeField] private Vector2 mousePos;
+
+    [Header("Variables")] [Space(20)] 
+    [SerializeField] private bool gameOver;
+    private bool setFlag = false;
+    private Vector2 mousePos;
+    [SerializeField] private int totalFlagsLeft;
 
     #endregion
 
@@ -61,7 +67,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Lists")]
     [Space(20)]
-    [SerializeField] private List<GridSprites> tileList = new List<GridSprites>();
+    private List<GridSprites> tileList = new List<GridSprites>();
 
     #endregion
 
@@ -85,28 +91,40 @@ public class GameManager : MonoBehaviour
 
         PlaceBombs(DifficultyType.EASY, 15);
 
-        HideAll();
+        GameExtreme(true);
     }
 
-    private void HideAll()
+    private void GameExtreme(bool hide)
     {
         for (int i = 0; i < grid.width; i++)
         {
             for (int j = 0; j < grid.height; j++)
             {
-                AssignSprite(i, j, TileType.EMPTY, true); // the TileType doesn't matters, as hide is true.
+                if (hide)
+                {
+                    tileList[i].tile[j].Hide(true);    
+                }
+                else
+                {
+                    tileList[i].tile[j].RevealMine();
+                }
             }
         }
     }
     
     private void PlaceBombs(DifficultyType type, int bombs)
     {
+        // flag no assigned
+        totalFlagsLeft = bombs;
+        flagsLeftTxt.text = totalFlagsLeft.ToString();
+        
         for (int i = 0; i < bombs; i++)
         {
             int x = Random.Range(0, grid.width);
             int y = Random.Range(0, grid.height);
             if (gridMap[x, y] != TileType.MINE)
             {
+                mineMap.Add(new [] { x, y });
                 gridMap[x, y] = TileType.MINE;
                 SetBlock(x, y, TileType.MINE, true);
 
@@ -131,7 +149,7 @@ public class GameManager : MonoBehaviour
         if (x >= 0 && x < grid.width && y >= 0 && y < grid.height && gridMap[x, y] != TileType.MINE)
         {
             gridMap[x, y] += 1;
-            SetBlock(x, y, TileType.NONE, true); // tileType doesn't matters here
+            SetBlock(x, y, TileType.NONE, false); // tileType doesn't matters here
         }
     }
 
@@ -139,17 +157,11 @@ public class GameManager : MonoBehaviour
     {
         tileList[x].tile[y].SetBlock(tile);
         if (!assign) return;
-        AssignSprite(x, y, tile, false);
+        AssignSprite(x, y, tile);
     }
 
-    private void AssignSprite(int x, int y, TileType tile, bool hide)
+    private void AssignSprite(int x, int y, TileType tile)
     {
-        if (hide)
-        {
-            tileList[x].tile[y].Hide(true);
-            return;
-        }
-
         switch (tile)
         {
             case TileType.MINE:
@@ -165,7 +177,7 @@ public class GameManager : MonoBehaviour
                 tileList[x].tile[y].SetText(false);
                 break;
             default:
-                tileList[x].tile[y].SetSprite(square, false); // doesn't matter the sprite...enable status is false
+                tileList[x].tile[y].SetSprite(null, false); // doesn't matter the sprite...enable status is false
                 tileList[x].tile[y].SetText(true);
                 break;
         }
@@ -179,33 +191,48 @@ public class GameManager : MonoBehaviour
             {
                 var rectTransform = tileList[i].tile[j].GetComponent<RectTransform>();
                 var clicked = tileList[i].tile[j].CheckCLicked();
+                
                 if (RectTransformUtility.RectangleContainsScreenPoint(rectTransform, mousePos) && !clicked)
                 {
                     if (setFlag)
                     {
-                        PutFlag(i, j);
-                        break;
+                        AssignFlag(i, j);
+                        goto CHECK_END;
                     }
 
                     RevealBlock(i, j);
-                    break;
+                    goto CHECK_END;
                 }
             }
         }
+        
+        CHECK_END:
+        CheckGameEnd();
     }
 
     private void RevealBlock(int x, int y)
     {
         if (x >= 0 && x < grid.width && y >= 0 && y < grid.height)
         {
-            Debug.Log($"x: {x}, y: {y}");
             tileList[x].tile[y].Hide(false);
             tileList[x].tile[y].RevealBlock();
-            
-            var curr = tileList[x].tile[y]._current;
+
+            var flagged = tileList[x].tile[y].CheckFlagged();
+            var curr = gridMap[x, y];
             var clicked = tileList[x].tile[y].CheckCLicked();
-            if (curr != TileType.EMPTY || clicked) return;
+
+            if (flagged) return;
+            if (gridMap[x, y] == TileType.MINE)
+            {
+                GameEnded();
+                gameOver = true;
+                return;
+            }
+
             tileList[x].tile[y].Clicked();
+            
+            if (curr != TileType.EMPTY || clicked) return;
+            tileList[x].tile[y].Empty();
             RevealBlock(x - 1, y - 1);
             RevealBlock(x, y - 1);
             RevealBlock(x + 1, y - 1);
@@ -214,22 +241,91 @@ public class GameManager : MonoBehaviour
             RevealBlock(x - 1, y + 1);
             RevealBlock(x, y + 1);
             RevealBlock(x + 1, y + 1);
-
         }
     }
 
-    private void PutFlag(int x, int y)
+    private void GameEnded()
     {
-        var flagged = tileList[x].tile[y].CheckFlag();
-        tileList[x].tile[y].Hide(!flagged);
-        AssignSprite(x, y, TileType.FLAG, !flagged);
+        #region RevealAllMines
+
+        gameOverUI.SetActive(true);
+        gameOverUI.transform.GetChild(0).GetComponent<TMP_Text>().text = "You Lost!!";
+        GameExtreme(false);
+
+        #endregion
+    }
+    
+    private void CheckGameEnd()
+    {
+        bool end = true;
+        if (totalFlagsLeft == 0)
+        {
+            /*foreach (var mine in mineMap)
+            {
+                var x = mine[0];
+                var y = mine[1];
+                if (!tileList[x].tile[y].CheckFlagged())
+                {
+                    end = false;
+                    break;
+                }
+            }*/
+
+            for (int i = 0; i < grid.width; i++)
+            {
+                for (int j = 0; j < grid.height; j++)
+                {
+                    var tt = gridMap[i, j];
+                    if (tt == TileType.MINE)
+                    {
+                        if (!tileList[i].tile[j].CheckFlagged())
+                        {
+                            end = false;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        if (!tileList[i].tile[j].CheckCLicked())
+                        {
+                            end = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            gameOverUI.SetActive(end);
+            gameOver = end;
+        }
+    }
+    
+    private void AssignFlag(int x, int y)
+    {
+        tileList[x].tile[y].SetUnSetFlag();
+        var flagged = tileList[x].tile[y].CheckFlagged();
+
+        if (flagged)
+        {
+            tileList[x].tile[y].Hide(false);
+            AssignSprite(x, y, TileType.FLAG);
+            totalFlagsLeft--;
+        }
+        else
+        {
+            tileList[x].tile[y].Hide(true);
+            AssignSprite(x, y, gridMap[x, y]);
+            totalFlagsLeft++;
+        }
+
+        flagsLeftTxt.text = totalFlagsLeft.ToString();
     }
     
     private void Update()
     {
         #region Reveals The Block
 
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(0) && !gameOver)
         {
             ButtonPress();
         }
@@ -238,7 +334,7 @@ public class GameManager : MonoBehaviour
 
         #region Puts Flag
 
-        if (Input.GetMouseButtonDown(1))
+        if (Input.GetMouseButtonDown(1) && !gameOver)
         {
             setFlag = true;
             ButtonPress();

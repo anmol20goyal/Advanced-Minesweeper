@@ -302,6 +302,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c17540cfe307ac044a4b3c48c71ac938, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  tileImage: {fileID: 1368751869974910364}
   _previous: 0
   _current: 0
   _text: {fileID: 1368751869347970193}
@@ -309,7 +310,6 @@ MonoBehaviour:
   _hideImage: {fileID: 6118365923027662690}
   clicked: 0
   flagged: 0
-  mine: 0
 --- !u!114 &7026035691607155626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -368,7 +368,7 @@ Canvas:
   m_PlaneDistance: 100
   m_PixelPerfect: 1
   m_ReceivesEvents: 1
-  m_OverrideSorting: 1
+  m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_AdditionalShaderChannelsFlag: 0
